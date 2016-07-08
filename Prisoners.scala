@@ -51,9 +51,7 @@ object Prisoners extends App {
 
 		def infiniteRandomStream: Stream[Int] = Random.nextInt(N) #:: infiniteRandomStream
 
-		val callsCounter = infiniteRandomStream.map(i => prisoners(i).call()).takeWhile(_ == false).size
-
-		callsCounter
+		infiniteRandomStream.map(i => prisoners(i).call()).takeWhile(_ == false).size
 	}
 
 	if (args.length < 1) println("Wrong number of arguments")
@@ -61,17 +59,11 @@ object Prisoners extends App {
 		val N = args(0).toInt
 		val M = if (args.length > 1) args(1).toInt else 1
 
-		var sum = 0
-
-		for (i <- 1 to M) {
+		val mean = (1 to M).map { _ =>
 			val callsCounter = Simulation(N)
-
-			println(s"Prisoners freed after $callsCounter calls.")
-
-			sum += callsCounter
-		}
-
-		val mean = sum / M
+			println(s"Prisoners freed after $callsCounter calls.");
+			callsCounter
+		}.sum / M
 
 		println(s"Calls mean: $mean")
 	}
