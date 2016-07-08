@@ -46,17 +46,33 @@ case class Leader(val N: Int) extends Prisoner {
 }
 
 object Prisoners extends App {
-	if (args.length != 1) {
-		println("Missing N")
-	} else {
-		val N = args(0).toInt
-
+	def Simulation(N: Int) = {
 		val prisoners = Leader(N) :: List.fill(N - 1)(OrdinaryPrisoner())
 
 		def infiniteRandomStream: Stream[Int] = Random.nextInt(N) #:: infiniteRandomStream
 
 		val callsCounter = infiniteRandomStream.map(i => prisoners(i).call()).takeWhile(_ == false).size
 
-		println(s"Prisoners freed after $callsCounter calls.")
+		callsCounter
+	}
+
+	if (args.length < 1) println("Wrong number of arguments")
+	else {
+		val N = args(0).toInt
+		val M = if (args.length > 1) args(1).toInt else 1
+
+		var sum = 0
+
+		for (i <- 1 to M) {
+			val callsCounter = Simulation(N)
+
+			println(s"Prisoners freed after $callsCounter calls.")
+
+			sum += callsCounter
+		}
+
+		val mean = sum / M
+
+		println(s"Calls mean: $mean")
 	}
 }
