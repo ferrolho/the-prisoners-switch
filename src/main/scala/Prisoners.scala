@@ -1,6 +1,7 @@
+import scalax.chart._
 import util.Random
 
-object Switch {
+class Switch {
 	private var state = false
 
 	def isUp = state
@@ -8,36 +9,29 @@ object Switch {
 	def toggle() = { state = !state }
 }
 
-trait Prisoner {
+sealed trait Prisoner {
 	def call(): Boolean
 }
 
-object OrdinaryPrisoner {
-	private var nextId = 0
-	private def inc() = { nextId += 1; nextId }
-}
-
-case class OrdinaryPrisoner(val id: Int = OrdinaryPrisoner.inc()) extends Prisoner {
+class OrdinaryPrisoner(implicit s: Switch) extends Prisoner {
 	private var hasToggledTheSwitch = false
 
 	def call() = {
-		if (Switch.isDown && !hasToggledTheSwitch) {
-			Switch.toggle()
+		if (s.isDown && !hasToggledTheSwitch) {
+			s.toggle()
 			hasToggledTheSwitch = true
 		}
 
 		false
 	}
-
-	override def toString(): String = "Prisoner no. " + id;
 }
 
-case class Leader(val N: Int) extends Prisoner {
+case class Leader(val N: Int)(implicit s: Switch) extends Prisoner {
 	private var counter = 0
 
 	def call() = {
-		if (Switch.isUp) {
-			Switch.toggle()
+		if (s.isUp) {
+			s.toggle()
 			counter += 1
 		}
 
@@ -45,9 +39,10 @@ case class Leader(val N: Int) extends Prisoner {
 	}
 }
 
-object Prisoners extends App {
+object Prisoners extends App with scalax.chart.module.Charting {
 	def Simulation(N: Int) = {
-		val prisoners = Leader(N) :: List.fill(N - 1)(OrdinaryPrisoner())
+		implicit val switch = new Switch
+		val prisoners = Leader(N) :: List.fill(N - 1)(new OrdinaryPrisoner)
 
 		def infiniteRandomStream: Stream[Int] = Random.nextInt(N) #:: infiniteRandomStream
 
@@ -59,12 +54,16 @@ object Prisoners extends App {
 		val N = args(0).toInt
 		val M = if (args.length > 1) args(1).toInt else 1
 
-		val mean = (1 to M).map { _ =>
-			val callsCounter = Simulation(N)
-			println(s"Prisoners freed after $callsCounter calls.");
-			callsCounter
-		}.sum / M
+		val results = (1 to M).par.map { i =>
+			val progress = (i * 100 / M) % 25 * 4
+			print(s"\r$progress%");
+			Simulation(N)
+		}
 
-		println(s"Calls mean: $mean")
+		val data = results.groupBy(_ / 100).mapValues(_.size).toList
+
+		val chart = XYLineChart(data, title = "The prisoners and the switch")
+		chart.saveAsPNG("chart.png", (1280, 720))
+		//chart.show()
 	}
 }
