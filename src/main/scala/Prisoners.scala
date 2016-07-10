@@ -54,8 +54,10 @@ object Prisoners extends App with scalax.chart.module.Charting {
 		val N = args(0).toInt
 		val M = if (args.length > 1) args(1).toInt else 1
 
+		val numCores = Runtime.getRuntime().availableProcessors()
+
 		val results = (1 to M).par.map { i =>
-			val progress = (i * 100 / M) % 25 * 4
+			val progress = (i * 100 / M) % (100 / numCores) * numCores
 			print(s"\r$progress%");
 			Simulation(N)
 		}
@@ -63,7 +65,7 @@ object Prisoners extends App with scalax.chart.module.Charting {
 		val data = results.groupBy(_ / 100).mapValues(_.size).toList
 
 		val chart = XYLineChart(data, title = "The prisoners and the switch")
-		chart.saveAsPNG("chart.png", (1280, 720))
+		chart.saveAsPNG(s"chart-$N-$M.png", (1280, 720))
 		//chart.show()
 	}
 }
