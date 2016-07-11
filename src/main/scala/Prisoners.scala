@@ -39,33 +39,68 @@ case class Leader(val N: Int)(implicit s: Switch) extends Prisoner {
 	}
 }
 
-object Prisoners extends App with scalax.chart.module.Charting {
-	def Simulation(N: Int) = {
+sealed trait DayAwarePrisoner {
+	def call(day: Int): Boolean
+}
+
+trait SimulationApp[P] extends App with scalax.chart.module.Charting {
+	def createPrisoners(N: Int)(implicit switch: Switch): List[P]
+	def call(prisoner: P, day: Int): Boolean
+
+	def simulate(N: Int): Int = {
 		implicit val switch = new Switch
-		val prisoners = Leader(N) :: List.fill(N - 1)(new OrdinaryPrisoner)
+		val prisoners = createPrisoners(N)
 
 		def infiniteRandomStream: Stream[Int] = Random.nextInt(N) #:: infiniteRandomStream
 
-		infiniteRandomStream.map(i => prisoners(i).call()).takeWhile(_ == false).size
+		infiniteRandomStream
+			.map(prisoners)
+			.zipWithIndex
+			.map((call _).tupled)
+			.takeWhile(_ == false)
+			.size
 	}
 
-	if (args.length < 1) println("Wrong number of arguments")
-	else {
-		val N = args(0).toInt
-		val M = if (args.length > 1) args(1).toInt else 1
+	def chartPrefix: String
 
-		val numCores = Runtime.getRuntime().availableProcessors()
+	def run(): Unit = {
+		if (args.length < 1) println("Wrong number of arguments")
+		else {
+			val N = args(0).toInt
+			val M = if (args.length > 1) args(1).toInt else 1
 
-		val results = (1 to M).par.map { i =>
-			val progress = (i * 100 / M) % (100 / numCores) * numCores
-			print(s"\r$progress%");
-			Simulation(N)
+			val numCores = Runtime.getRuntime().availableProcessors()
+
+			val results = (1 to M).par.map { i =>
+				val progress = (i * 100 / M) % (100 / numCores) * numCores
+				print(s"\r$progress%");
+				simulate(N)
+			}
+
+			val data = results.groupBy(_ / 100).mapValues(_.size).toList
+
+			val chart = XYLineChart(data, title = "The prisoners and the switch")
+			chart.saveAsPNG(s"$chartPrefix-$N-$M.png", (1280, 720))
+			//chart.show()
 		}
-
-		val data = results.groupBy(_ / 100).mapValues(_.size).toList
-
-		val chart = XYLineChart(data, title = "The prisoners and the switch")
-		chart.saveAsPNG(s"chart-$N-$M.png", (1280, 720))
-		//chart.show()
 	}
+}
+
+object Prisoners extends SimulationApp[Prisoner] {
+	def createPrisoners(N: Int)(implicit switch: Switch) =
+		Leader(N) :: List.fill(N - 1)(new OrdinaryPrisoner)
+	
+	def call(prisoner: Prisoner, day: Int) = prisoner.call()
+
+	val chartPrefix = "chart"
+	run()
+}
+
+object DayAwarePrisoners extends SimulationApp[DayAwarePrisoner] {
+	def createPrisoners(N: Int)(implicit switch: Switch) = ???
+
+	def call(prisoner: DayAwarePrisoner, day: Int) = prisoner.call(day)
+
+	val chartPrefix = "dayaware"
+	run()
 }
